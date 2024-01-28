@@ -1,12 +1,20 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { token } = require('../config.json'); // Ensure this path is correct for your setup
 const axios = require('axios');
+let fetchData;
 
 // Create a new client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once('ready', () => {
+// Define the 'ready' event handler
+client.once('ready', async () => {
     console.log('Discord bot is ready!');
+    // Dynamically import the fetchData function from the scrape module
+    try {
+        fetchData = (await import('../tools/scrape.js')).default;
+    } catch (error) {
+        console.error('Error importing the scrape module:', error);
+    }
 });
 
 client.on('interactionCreate', async interaction => {
@@ -41,6 +49,7 @@ client.on('interactionCreate', async interaction => {
         }
 
     } else if (interaction.commandName === 'roll') {
+
         // Dice roll command logic
         const dice = interaction.options.getInteger('dice') || 1;
         const sides = interaction.options.getInteger('sides') || 6;
@@ -53,6 +62,41 @@ client.on('interactionCreate', async interaction => {
             .addFields({ name: 'Results', value: results.join(', ') });
 
         await interaction.reply({ embeds: [embed] });
+
+    } else if (interaction.commandName === 'npcgen') {
+        const npcCount = interaction.options.getInteger('number');
+
+        // Validate the input number
+        if (npcCount < 1 || npcCount > 5) {
+            return await interaction.reply('Please enter a number between 1 and 5.');
+        }
+
+        await interaction.deferReply(); // Acknowledge the command
+
+        for (let i = 0; i < npcCount; i++) {
+            const characterData = await fetchData('https://deorum.vercel.app/gallery/');
+            const character = characterData[i % characterData.length]; // Loop over character data
+
+            const description = character.description && character.description.trim() !== ''
+                                ? character.description 
+                                : 'No description available.';
+
+            const characterEmbed = new EmbedBuilder()
+                .setColor(0x00AE86)
+                .setTitle(character.title || 'Unknown Title')
+                .setDescription(description)
+                .setImage(character.imageUrl || 'https://example.com/default-image.jpg')
+                .setURL(character.detailsUrl || 'https://example.com');
+
+            const customLabels = ['Race', 'Archetype', 'Background'];    
+
+            character.features.forEach((feature, index) => {
+                const label = customLabels[index] || 'Additional Feature';
+                characterEmbed.addFields({ name: label, value: feature, inline: true });
+            });
+
+            await interaction.followUp({ content: `Character ${i + 1}`, embeds: [characterEmbed] });
+        }
     }
 });
 
@@ -63,7 +107,6 @@ function rollDice(numberOfDice, sides) {
     }
     return rolls;
 }
-
 
 async function sendInParts(message, interaction) {
     const MAX_LENGTH = 2000;
@@ -115,7 +158,7 @@ function findListEnd(message, maxLength) {
     return lastFound;
 }
 
-function calculateTypingDelay(message, typingSpeed = 50) {
+function calculateTypingDelay(message, typingSpeed = 120) {
     return Math.min(Math.max(message.length / typingSpeed * 1000, 1000), 5000); // Ensures delay is between 1 and 5 seconds
 }
 
