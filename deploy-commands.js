@@ -31,6 +31,18 @@ const commands = [
         required: false, // Make this optional; default can be set in the bot code
       }
     ]
+  },
+  {
+    name: 'npcgen',
+    description: 'Generate NPC characters',
+    options: [
+      {
+        type: 4, // Corrected type value (INTEGER)
+        name: 'number',
+        description: 'Number of NPCs to generate (1-5)',
+        required: true
+      }
+    ]
   }
 ];
 
