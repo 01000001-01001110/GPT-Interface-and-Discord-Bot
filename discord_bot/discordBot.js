@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { token } = require('../config.json'); // Ensure this path is correct for your setup
 const axios = require('axios');
 
@@ -10,34 +10,59 @@ client.once('ready', () => {
 });
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isCommand() || interaction.commandName !== 'ask') return;
+    if (!interaction.isCommand()) return;
 
-  const question = interaction.options.getString('question');
-  const userId = interaction.user.id; // Extract user ID from the interaction
+    if (interaction.commandName === 'ask') {
+        // Existing 'ask' command logic
+        const question = interaction.options.getString('question');
+        const userId = interaction.user.id; // Extract user ID from the interaction
 
-  // Acknowledge the interaction immediately
-  await interaction.deferReply();
-  const channel = await client.channels.fetch(interaction.channelId);
-  channel.sendTyping(); // Show typing indicator in the channel
+        // Acknowledge the interaction immediately
+        await interaction.deferReply();
+        const channel = await client.channels.fetch(interaction.channelId);
+        channel.sendTyping(); // Show typing indicator in the channel
 
-  try {
-      // Send the question and userId to your Express app
-      const response = await axios.post('http://localhost:3000/chat', { message: question, userId });
-      let reply = `Question: ${question}\nAnswer: ${response.data.response}`;
+        try {
+            // Send the question and userId to your Express app
+            const response = await axios.post('http://localhost:3000/chat', { message: question, userId });
+            let reply = `Question: ${question}\nAnswer: ${response.data.response}`;
 
-      // Simulate typing delay based on the length of the reply
-      setTimeout(async () => {
-          if (reply.length > 2000) {
-              await sendInParts(reply, interaction); // If the reply is too long, send it in parts
-          } else {
-              await interaction.editReply(reply || 'No response from the assistant.');
-          }
-      }, calculateTypingDelay(reply));
-  } catch (error) {
-      console.error("Error in interaction with assistant:", error);
-      await interaction.editReply('Sorry, there was an error processing your request.');
-  }
+            // Simulate typing delay based on the length of the reply
+            setTimeout(async () => {
+                if (reply.length > 2000) {
+                    await sendInParts(reply, interaction); // If the reply is too long, send it in parts
+                } else {
+                    await interaction.editReply(reply || 'No response from the assistant.');
+                }
+            }, calculateTypingDelay(reply));
+        } catch (error) {
+            console.error("Error in interaction with assistant:", error);
+            await interaction.editReply('Sorry, there was an error processing your request.');
+        }
+
+    } else if (interaction.commandName === 'roll') {
+        // Dice roll command logic
+        const dice = interaction.options.getInteger('dice') || 1;
+        const sides = interaction.options.getInteger('sides') || 6;
+        const results = rollDice(dice, sides);
+
+        const embed = new EmbedBuilder()
+            .setColor(0x0099FF)
+            .setTitle('🎲 Dice Roll')
+            .setDescription(`Rolling ${dice} dice with ${sides} sides each.`)
+            .addFields({ name: 'Results', value: results.join(', ') });
+
+        await interaction.reply({ embeds: [embed] });
+    }
 });
+
+function rollDice(numberOfDice, sides) {
+    const rolls = [];
+    for (let i = 0; i < numberOfDice; i++) {
+        rolls.push(Math.floor(Math.random() * sides) + 1);
+    }
+    return rolls;
+}
 
 
 async function sendInParts(message, interaction) {
